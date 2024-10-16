@@ -9,9 +9,9 @@ import java.util.Queue;
 import java.util.LinkedList;
 
 public class MultithreadedClient {
-    private static final int INITIAL_THREADS = 32; // 保持线程数为32
-    private static final int TOTAL_REQUESTS = 200000; // 总请求数
-    private static final int REQUESTS_PER_THREAD = TOTAL_REQUESTS / INITIAL_THREADS; // 每个线程发送的请求数
+    private static final int INITIAL_THREADS = 32;
+    private static final int TOTAL_REQUESTS = 200000;
+    private static final int REQUESTS_PER_THREAD = TOTAL_REQUESTS / INITIAL_THREADS;
 
     private static BlockingQueue<LiftRideEvent> eventQueue;
     private AtomicInteger successfulRequests = new AtomicInteger(0);
@@ -27,26 +27,20 @@ public class MultithreadedClient {
     public void start() throws InterruptedException {
         long startTime = System.currentTimeMillis();
 
-        // 创建线程池，初始32个线程
         ExecutorService executorService = Executors.newFixedThreadPool(INITIAL_THREADS);
 
-        // 启动EventGenerator生成数据
         EventGenerator generator = new EventGenerator(eventQueue, TOTAL_REQUESTS);
         new Thread(generator).start();
 
-        // 使用 CountDownLatch 来等待初始 32 个线程完成
         CountDownLatch latch = new CountDownLatch(INITIAL_THREADS);
 
-        // 启动32个线程，每个线程发送6,250个请求
         for (int i = 0; i < INITIAL_THREADS; i++) {
             executorService.submit(new EventSender(latch, REQUESTS_PER_THREAD));
         }
 
-        // 等待32个线程完成
         latch.await();
         System.out.println("32 threads completed. Total requests sent: " + INITIAL_THREADS * REQUESTS_PER_THREAD);
 
-        // 计算和打印统计信息
         EventSender.calculateStats();
 
         long endTime = System.currentTimeMillis();
@@ -57,14 +51,12 @@ public class MultithreadedClient {
         System.out.println("Failed requests: " + failedRequests.get());
         System.out.println("Total run time (ms): " + totalTime);
 
-        // 吞吐量：成功请求数 / 运行时间（秒）
         double throughput = (successfulRequests.get() / (totalTime / 1000.0));
         System.out.println("Throughput (requests/second): " + throughput);
 
         executorService.shutdown();
     }
 
-    // EventSender 类，发送请求并记录延迟
     public class EventSender implements Runnable {
         private CountDownLatch latch;
         private int requestsToSend;
@@ -86,22 +78,20 @@ public class MultithreadedClient {
 
                     int attempts = 0;
                     boolean sent = false;
-                    long startTime = System.currentTimeMillis(); // 记录请求发送时间
+                    long startTime = System.currentTimeMillis();
                     while (attempts < 5 && !sent) {
                         sent = client.sendLiftRideEvent(event);
                         attempts++;
                     }
-                    long endTime = System.currentTimeMillis(); // 记录请求响应时间
+                    long endTime = System.currentTimeMillis();
                     long latency = endTime - startTime;
 
-                    // 记录延迟和响应状态到 CSV
                     try (FileWriter writer = new FileWriter("request_logs.csv", true)) {
                         writer.append(String.format("%d, POST, %d, %d\n", startTime, latency, 200)); // 假设所有响应为200
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
 
-                    // 成功计数
                     if (sent) {
                         synchronized (MultithreadedClient.this) {
                             successfulRequests.getAndIncrement();
@@ -112,7 +102,6 @@ public class MultithreadedClient {
                         }
                     }
 
-                    // 记录延迟到队列中
                     synchronized (MultithreadedClient.class) {
                         requestLatencies.add(latency);
                     }
@@ -123,10 +112,9 @@ public class MultithreadedClient {
                     }
                 }
             }
-            latch.countDown(); // 当前线程完成，减少latch的计数
+            latch.countDown();
         }
 
-        // 计算延迟的统计信息
         public static void calculateStats() {
             long totalLatency = 0;
             long minLatency = Long.MAX_VALUE;

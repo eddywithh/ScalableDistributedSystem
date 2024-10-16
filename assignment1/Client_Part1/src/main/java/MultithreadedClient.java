@@ -6,9 +6,9 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class MultithreadedClient {
-    private static final int INITIAL_THREADS = 32; // 初始启动32个线程
-    private static final int TOTAL_REQUESTS = 200000; // 总请求数
-    private static final int REQUESTS_PER_THREAD = 1000; // 每个线程发送1000个请求
+    private static final int INITIAL_THREADS = 32;
+    private static final int TOTAL_REQUESTS = 200000;
+    private static final int REQUESTS_PER_THREAD = 1000;
 
     private BlockingQueue<LiftRideEvent> eventQueue;
     private AtomicInteger successfulRequests = new AtomicInteger(0);
@@ -21,22 +21,17 @@ public class MultithreadedClient {
     public void start() throws InterruptedException {
         long startTime = System.currentTimeMillis();
 
-        // 创建线程池，初始32个线程
         ExecutorService executorService = Executors.newFixedThreadPool(INITIAL_THREADS);
 
-        // 启动EventGenerator生成数据
         EventGenerator generator = new EventGenerator(eventQueue, TOTAL_REQUESTS);
         new Thread(generator).start();
 
-        // 使用 CountDownLatch 来等待初始 32 个线程完成
         CountDownLatch latch = new CountDownLatch(INITIAL_THREADS);
 
-        // 启动32个线程，每个线程发送1000个请求
         for (int i = 0; i < INITIAL_THREADS; i++) {
             executorService.submit(new EventSender(latch, REQUESTS_PER_THREAD));
         }
 
-        // 等待32个线程完成
         latch.await();
         System.out.println("32 threads completed. Total requests sent: " + INITIAL_THREADS * REQUESTS_PER_THREAD);
         int remainingRequests = TOTAL_REQUESTS - successfulRequests.get() - failedRequests.get();
@@ -45,18 +40,14 @@ public class MultithreadedClient {
         System.out.println("*********************************************************");
 
         while (remainingRequests > 0) {
-            // 每次启动32个线程
             CountDownLatch remainingLatch = new CountDownLatch(INITIAL_THREADS);
             int requestsToSend = Math.min(remainingRequests, INITIAL_THREADS * REQUESTS_PER_THREAD);
 
-            // 启动32个线程
             for (int i = 0; i < INITIAL_THREADS; i++) {
                 int requestsForThisThread = Math.min(REQUESTS_PER_THREAD, remainingRequests);
                 remainingRequests -= requestsForThisThread;
                 executorService.submit(new EventSender(remainingLatch, requestsForThisThread));
             }
-
-            // 等待这32个线程完成
             remainingLatch.await();
         }
 
@@ -68,14 +59,12 @@ public class MultithreadedClient {
         System.out.println("Failed requests: " + failedRequests.get());
         System.out.println("Total run time (ms): " + totalTime);
 
-        // 吞吐量：成功请求数 / 运行时间（秒）
         double throughput = (successfulRequests.get() / (totalTime / 1000.0));
         System.out.println("Throughput (requests/second): " + throughput);
 
         executorService.shutdown();
     }
 
-    // EventSender 类，发送请求
     private class EventSender implements Runnable {
         private CountDownLatch latch;
         private int requestsToSend;
@@ -101,7 +90,6 @@ public class MultithreadedClient {
                         attempts++;
                     }
 
-                    // 成功计数
                     if (sent) {
                         synchronized (MultithreadedClient.this) {
                             successfulRequests.getAndIncrement();
@@ -118,7 +106,6 @@ public class MultithreadedClient {
                     }
                 }
             }
-            // 当前线程完成，减少latch的计数
             latch.countDown();
         }
     }
