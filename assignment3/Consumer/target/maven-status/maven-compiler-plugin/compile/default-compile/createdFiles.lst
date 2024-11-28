@@ -1,0 +1,5 @@
+Model/Message.class
+Consumer.class
+Model/ChannelPool.class
+Model/LiftRide.class
+DynamoDBClient.class
